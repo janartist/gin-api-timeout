@@ -26,38 +26,35 @@ type TimeoutManager struct {
 	repFunc responseFunc
 }
 
-type TimeoutOpt struct {
-	timeout time.Duration
-	repFunc responseFunc
+func NewTimeoutWriter(w gin.ResponseWriter, c *gin.Context) *TimeoutWriter {
+	return &TimeoutWriter{w, c}
 }
 
-func NewTimeoutWriter(w gin.ResponseWriter, c *gin.Context) *timeoutWriter {
-	return &timeoutWriter{w, c}
-}
-
-type timeoutWriter struct {
+type TimeoutWriter struct {
 	gin.ResponseWriter
 	c *gin.Context
 }
 
-//重写底层write方法，获取response存入上下文，其余不更改
-func (w *timeoutWriter) Write(data []byte) (int, error) {
+//重写底层write方法，防止重复response
+func (w *TimeoutWriter) Write(data []byte) (int, error) {
 	if !isTimeout(w.c) {
 		return w.ResponseWriter.Write(data)
 	}
 	return 0, nil
 }
-func (w *timeoutWriter) WriteHeader(statusCode int) {
+func (w *TimeoutWriter) WriteHeader(statusCode int) {
 	if !isTimeout(w.c) {
 		w.ResponseWriter.WriteHeader(statusCode)
 	}
 }
-func (w *timeoutWriter) Header() http.Header {
+func (w *TimeoutWriter) Header() http.Header {
 	if !isTimeout(w.c) {
 		return w.ResponseWriter.Header()
 	}
 	return make(http.Header)
 }
+
+//TimeoutMiddleware 核心中间件
 func TimeoutMiddleware(m *TimeoutManager) func(c *gin.Context) {
 	if m.timeout == 0 {
 		m.timeout = timeoutDefault
